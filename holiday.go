@@ -40,12 +40,14 @@ func ParseAnnualHolidayInfo(annualHolidayInfo []byte) (AnnualHolidays, error) {
 
 	err := json.Unmarshal(annualHolidayInfo, &holiday)
 	if err != nil {
+		log.Printf("解析 Json 失败")
 		return AnnualHolidays{}, err
 	}
 
 	var annualHolidays AnnualHolidays
 	annualHolidays.year, err = strconv.Atoi(holiday["year"].(string))
 	if err != nil {
+		log.Printf("json 中年份不存在, 或不为整数")
 		return AnnualHolidays{}, err
 	}
 
@@ -54,6 +56,7 @@ func ParseAnnualHolidayInfo(annualHolidayInfo []byte) (AnnualHolidays, error) {
 		if holidayMap, ok := holiday.(map[string]interface{}); ok {
 			annualHolidays.holidays[holidayMap["date"].(string)] = HolidayType{holidayMap["name"].(string), holidayMap["isOffDay"].(bool)}
 		} else {
+			log.Printf("节假日格式错误, %s", holiday)
 			return AnnualHolidays{}, err
 		}
 	}

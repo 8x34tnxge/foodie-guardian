@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"time"
 
 	"github.com/CatchZeng/feishu/pkg/feishu"
@@ -21,9 +22,8 @@ func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func
 }
 
 func main() {
-	// TODO: read from env
-	token := ""
-	secret := ""
+	token := os.Getenv("FOODIE_GARDIAN_TOKEN")
+	secret := os.Getenv("FOODIE_GARDIAN_SECRET")
 
 	feishuBot := feishu.NewClient(token, secret)
 

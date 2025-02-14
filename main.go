@@ -8,11 +8,11 @@ import (
 	"github.com/go-co-op/gocron/v2"
 )
 
-func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, msg string) {
+func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func() string) {
 	annualHolidays.Update()
 	if annualHolidays.DetermineIfTodayShouldWork() {
 		for {
-			_, resp, err := bot.Send(feishu.NewPostMessage().AppendZHContent([]feishu.PostItem{feishu.NewText(msg)}))
+			_, resp, err := bot.Send(feishu.NewPostMessage().AppendZHContent([]feishu.PostItem{feishu.NewText(f())}))
 			if err == nil && 0 == resp.Code {
 				break
 			}
@@ -44,7 +44,7 @@ func main() {
 			gocron.NewAtTime(14, 00, 0),
 		)),
 		gocron.NewTask(
-			WorkNotification, feishuBot, &annualHolidays, "别忘记报餐哦~^_^~",
+			WorkNotification, feishuBot, &annualHolidays, GenerateOrderingNotificationMsg,
 		))
 	if err != nil {
 		log.Fatal(err)
@@ -56,7 +56,7 @@ func main() {
 			gocron.NewAtTime(17, 00, 0),
 		)),
 		gocron.NewTask(
-			WorkNotification, feishuBot, &annualHolidays, "是时候去吃饭了ლ(╹◡╹ლ)",
+			WorkNotification, feishuBot, &annualHolidays, GenerateMealNotificationMsg,
 		))
 	if err != nil {
 		log.Fatal(err)

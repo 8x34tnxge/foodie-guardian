@@ -24,6 +24,7 @@ func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func
 func main() {
 	token := os.Getenv("FOODIE_GARDIAN_TOKEN")
 	secret := os.Getenv("FOODIE_GARDIAN_SECRET")
+	timezone := os.Getenv("TZ")
 
 	feishuBot := feishu.NewClient(token, secret)
 
@@ -32,7 +33,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	scheduler, err := gocron.NewScheduler()
+	location, err := time.LoadLocation(timezone)
+	{
+		log.Fatal(err)
+	}
+
+	scheduler, err := gocron.NewScheduler(gocron.WithLocation(location))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -40,7 +40,7 @@ func main() {
 	fmt.Println("Fetch holiday info success")
 
 	location, err := time.LoadLocation(timezone)
-	{
+	if err != nil {
 		log.Fatal(err)
 	}
 

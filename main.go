@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -12,12 +13,16 @@ import (
 func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func() string) {
 	annualHolidays.Update()
 	if annualHolidays.DetermineIfTodayShouldWork() {
+		fmt.Println("Today is work day, need to send notification")
 		for {
 			_, resp, err := bot.Send(feishu.NewPostMessage().AppendZHContent([]feishu.PostItem{feishu.NewText(f())}))
 			if err == nil && 0 == resp.Code {
 				break
 			}
+			fmt.Println("Send message failed, wait 10 ms and try again")
+			time.Sleep(10 * time.Millisecond)
 		}
+		fmt.Println("Send notification success")
 	}
 }
 
@@ -32,6 +37,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Fetch holiday info success")
 
 	location, err := time.LoadLocation(timezone)
 	{
@@ -68,6 +74,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println("scheduler init succeed, start it")
 	scheduler.Start()
 
 	select {}

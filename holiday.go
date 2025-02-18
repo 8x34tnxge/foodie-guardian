@@ -34,7 +34,11 @@ func (annualHolidays *AnnualHolidays) ReadFromApi() error {
 
 func (annualHolidays *AnnualHolidays) Update() {
 	if annualHolidays.year != time.Now().Year() {
-		annualHolidays.ReadFromApi()
+		err := annualHolidays.ReadFromApi()
+		if err != nil {
+			log.Fatal(err)
+		}
+		log.Print("Update holiday data via api success")
 	}
 }
 
@@ -53,7 +57,7 @@ func (annualHolidays AnnualHolidays) DetermineIfTodayShouldWork() bool {
 
 func FetchFromApiWithRetry(url string, maxRetries uint, timeout time.Duration) ([]byte, error) {
 	var body []byte
-	for i := uint(0); i <= maxRetries; i++ {
+	for tryCnt := uint(0); tryCnt <= maxRetries; tryCnt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 
@@ -65,7 +69,7 @@ func FetchFromApiWithRetry(url string, maxRetries uint, timeout time.Duration) (
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			if ctx.Err() == context.DeadlineExceeded {
-				log.Printf("尝试 %d: 请求超时", i+1)
+				log.Printf("尝试 %d: 请求超时", tryCnt+1)
 				continue // 继续下一次循环
 			}
 			return nil, fmt.Errorf("请求失败: %w", err)
@@ -81,7 +85,7 @@ func FetchFromApiWithRetry(url string, maxRetries uint, timeout time.Duration) (
 			return body, nil // 请求成功
 		}
 
-		log.Printf("尝试 %d: 状态码 %d", i+1, resp.StatusCode)
+		log.Printf("尝试 %d: 状态码 %d", tryCnt+1, resp.StatusCode)
 		time.Sleep(time.Second) // 等待一段时间后重试
 	}
 

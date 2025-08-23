@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/CatchZeng/feishu/pkg/feishu"
@@ -26,13 +28,45 @@ func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func
 	}
 }
 
+func ParseTimes(times string) ([]gocron.AtTime, error) {
+	timeVector := strings.Split(times, ";")
+	retTimes := make([]gocron.AtTime, len(timeVector))
+	for idx, timeString := range timeVector {
+		timeSplits := strings.Split(timeString, ":")
+		if len(timeSplits) != 3 {
+			return retTimes, fmt.Errorf("time format is invalid, it should be HH:MM:SS")
+		}
+
+		hours, err := strconv.ParseUint(timeSplits[0], 10, 0)
+		if err != nil {
+			return retTimes, err
+		}
+		minutes, err := strconv.ParseUint(timeSplits[1], 10, 0)
+		if err != nil {
+			return retTimes, err
+		}
+		seconds, err := strconv.ParseUint(timeSplits[2], 10, 0)
+		if err != nil {
+			return retTimes, err
+		}
+
+		retTimes[idx] = gocron.NewAtTime(uint(hours), uint(minutes), uint(seconds))
+	}
+
+	return retTimes, nil
+}
+
 func main() {
 	token := os.Getenv("FOODIE_GARDIAN_TOKEN")
 	secret := os.Getenv("FOODIE_GARDIAN_SECRET")
 	timezone := os.Getenv("TZ")
+	orderNotifyTimes := os.Getenv("ORDER_NOTIFY_TIMES")
+	mealNotifyTimes := os.Getenv("MEAL_NOTIFY_TIMES")
 
 	feishuBot := feishu.NewClient(token, secret)
+	fmt.Printf("Create client, token %s, secret %s\n", token, secret)
 
+	// TODO: try database first, api later
 	annualHolidays, err := FetchAnnualHolidayInfo(time.Now().Year())
 	if err != nil {
 		log.Fatal(err)
@@ -50,10 +84,20 @@ func main() {
 	}
 	defer scheduler.Shutdown()
 
+	fmt.Println("Parse times from env")
+	orderNotifyTimesFromEnv, err := ParseTimes(orderNotifyTimes)
+	if err != nil {
+		log.Fatal(err)
+	}
+	mealNotifyTimesFromEnv, err := ParseTimes(mealNotifyTimes)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Parse succeed, begin to generate new jobs")
 	_, err = scheduler.NewJob(
 		gocron.DailyJob(1, gocron.NewAtTimes(
-			gocron.NewAtTime(9, 30, 0),
-			gocron.NewAtTime(14, 00, 0),
+			orderNotifyTimesFromEnv[0], orderNotifyTimesFromEnv[1:]...,
 		)),
 		gocron.NewTask(
 			WorkNotification, feishuBot, &annualHolidays, GenerateOrderingNotificationMsg,
@@ -64,8 +108,7 @@ func main() {
 
 	_, err = scheduler.NewJob(
 		gocron.DailyJob(1, gocron.NewAtTimes(
-			gocron.NewAtTime(11, 50, 0),
-			gocron.NewAtTime(17, 00, 0),
+			mealNotifyTimesFromEnv[0], mealNotifyTimesFromEnv[1:]...,
 		)),
 		gocron.NewTask(
 			WorkNotification, feishuBot, &annualHolidays, GenerateMealNotificationMsg,

@@ -17,8 +17,32 @@ type HolidayType struct {
 }
 
 type AnnualHolidays struct {
-	year     int
-	holidays map[string]HolidayType
+	year      int
+	holidays  map[string]HolidayType
+	storePath string
+}
+
+func NewAnnualHolidays(databasePath string) (*AnnualHolidays, error) {
+	ret := AnnualHolidays{}
+	ret.storePath = databasePath
+
+	err := ret.ReadFromDatabase()
+	if err == nil {
+		log.Print("Fetch holiday data from database success")
+		return &ret, nil
+	}
+
+	err = ret.ReadFromApi()
+	if err == nil {
+		log.Print("Fetch holiday data from api success")
+		return &ret, nil
+	}
+
+	return nil, err
+}
+
+func (annualHolidays *AnnualHolidays) ReadFromDatabase() error {
+	return nil
 }
 
 func (annualHolidays *AnnualHolidays) ReadFromApi() error {

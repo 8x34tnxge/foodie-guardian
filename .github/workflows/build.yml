@@ -35,7 +35,7 @@ jobs:
       - name: Build Go application
         run: |
           go mod tidy
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o myapp .
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o foodie-guardian .
           
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
@@ -43,5 +43,5 @@ jobs:
           tag_name: v${{ steps.generate_version.outputs.version }}
           name: Release ${{ steps.generate_version.outputs.version }}
           files: |
-            myapp
+            foodie-guardian
           body: "Automated release based on the latest push to main."

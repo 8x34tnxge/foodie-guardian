@@ -21,6 +21,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      
+      - name: Generate release version
+        id: generate_version
+        run: |
+          echo "version=$(date -u +'%Y.%m.%d.%H%M')" >> $GITHUB_OUTPUT
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -35,10 +40,8 @@ jobs:
       - name: Create Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ env.RELEASE_VERSION }}
-          name: Release ${{ env.RELEASE_VERSION }}
+          tag_name: v${{ steps.generate_version.outputs.version }}
+          name: Release ${{ steps.generate_version.outputs.version }}
           files: |
             myapp
-          body: "Automated release based on the latest push."
-        env:
-          RELEASE_VERSION: ${{ format('{0:yyyy.MM.dd.HHmm}', fromJson(toJSON(github.event.head_commit.timestamp))) }}
+          body: "Automated release based on the latest push to main."

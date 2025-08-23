@@ -12,6 +12,16 @@ import (
 	"github.com/go-co-op/gocron/v2"
 )
 
+type FeishuBotAPI struct {
+	token  string
+	secret string
+}
+
+type LLM_API struct {
+	api_key string
+	model   string
+}
+
 func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func() string) {
 	annualHolidays.Update()
 	if annualHolidays.DetermineIfTodayShouldWork() {
@@ -57,14 +67,14 @@ func ParseTimes(times string) ([]gocron.AtTime, error) {
 }
 
 func main() {
-	token := os.Getenv("FOODIE_GARDIAN_TOKEN")
-	secret := os.Getenv("FOODIE_GARDIAN_SECRET")
 	timezone := os.Getenv("TZ")
+
+	feishu_bot_api := FeishuBotAPI{os.Getenv("FEISHU_BOT_TOKEN"), os.Getenv("FEISHU_BOT_SECRET")}
+	feishuBot := feishu.NewClient(feishu_bot_api.token, feishu_bot_api.secret)
+	fmt.Printf("Create client, token %s, secret %s\n", feishu_bot_api.token, feishu_bot_api.secret)
+
 	orderNotifyTimes := os.Getenv("ORDER_NOTIFY_TIMES")
 	mealNotifyTimes := os.Getenv("MEAL_NOTIFY_TIMES")
-
-	feishuBot := feishu.NewClient(token, secret)
-	fmt.Printf("Create client, token %s, secret %s\n", token, secret)
 
 	// TODO: try database first, api later
 	annualHolidays, err := FetchAnnualHolidayInfo(time.Now().Year())

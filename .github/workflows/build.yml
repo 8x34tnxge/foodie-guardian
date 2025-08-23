@@ -1,0 +1,44 @@
+name: Build and Release Go App
+
+# 触发器配置更新
+on:
+  push:
+    branches:
+      - main
+    # --- 新增的路径过滤器 ---
+    paths:
+      - '**.go'      # 匹配所有目录下的 .go 文件
+      - 'go.mod'    # 匹配 go.mod 文件
+      - 'go.sum'    # 匹配 go.sum 文件
+
+jobs:
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Build Go application
+        run: |
+          go mod tidy
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o myapp .
+          
+      - name: Create Release and Upload Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.RELEASE_VERSION }}
+          name: Release ${{ env.RELEASE_VERSION }}
+          files: |
+            myapp
+          body: "Automated release based on the latest push."
+        env:
+          RELEASE_VERSION: ${{ format('{0:yyyy.MM.dd}', fromJson(toJSON(github.event.head_commit.timestamp))) }}

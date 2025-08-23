@@ -41,4 +41,4 @@ jobs:
             myapp
           body: "Automated release based on the latest push."
         env:
-          RELEASE_VERSION: ${{ format('{0:yyyy.MM.dd}', fromJson(toJSON(github.event.head_commit.timestamp))) }}
+          RELEASE_VERSION: ${{ format('{0:yyyy.MM.dd.HHmm}', fromJson(toJSON(github.event.head_commit.timestamp))) }}

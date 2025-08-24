@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download latest release asset
-        run: gh release download --latest --pattern 'foodie-guardian' --output ./foodie-guardian
+        run: gh release download --pattern 'foodie-guardian' --output ./foodie-guardian
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
@@ -102,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download latest release asset
-        run: gh release download --latest --pattern 'foodie-guardian' --output ./foodie-guardian
+        run: gh release download --pattern 'foodie-guardian' --output ./foodie-guardian
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       

@@ -1,0 +1,22 @@
+[
+  {
+    "time": "09:30",
+    "parameter": "-order",
+    "description": "上午报餐提醒"
+  },
+  {
+    "time": "14:00",
+    "parameter": "-order",
+    "description": "下午报餐提醒"
+  },
+  {
+    "time": "11:50",
+    "parameter": "-meal",
+    "description": "午饭提醒"
+  },
+  {
+    "time": "17:30",
+    "parameter": "-meal",
+    "description": "晚饭提醒"
+  }
+]

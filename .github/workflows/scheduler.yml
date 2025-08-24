@@ -1,0 +1,111 @@
+name: Scheduled Runner
+
+on:
+  schedule:
+    # 每10分钟运行一次调度器，检查是否有任务到期
+    - cron: '*/10 * * * *'
+  # 也允许手动触发，方便测试
+  workflow_dispatch:
+
+jobs:
+  # --- 作业1: 调度器 ---
+  scheduler:
+    name: Check for due tasks
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write # 必须有权限来触发其他 workflow
+      contents: read
+    outputs:
+      # 定义输出，告诉后续作业需要触发哪些任务
+      trigger_order: ${{ steps.check_schedule.outputs.trigger_order }}
+      trigger_meal: ${{ steps.check_schedule.outputs.trigger_meal }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check schedule
+        id: check_schedule
+        run: |
+          import json, datetime, os
+          # 设置时区为北京时间 (UTC+8)
+          tz = datetime.timezone(datetime.timedelta(hours=8))
+          now = datetime.datetime.now(tz)
+          # 为了匹配15分钟的窗口，我们只检查小时和分钟的范围
+          current_hour, current_minute = now.hour, now.minute
+          print(f"Current time (UTC+8): {current_hour:02d}:{current_minute:02d}")
+          
+          trigger_order = "false"
+          trigger_meal = "false"
+          
+          with open('schedule.json', 'r') as f:
+            schedules = json.load(f)
+          
+          # TODO: add holiday check in here and remove from golang code
+          for task in schedules:
+            task_hour, task_minute = map(int, task['time'].split(':'))
+            # 检查当前时间是否落在任务时间的15分钟窗口内
+            if task_hour == current_hour and current_minute <= task_minute <= current_minute + 10:
+              print(f"Time match! Task '{task['description']}' is due.")
+              if task['parameter'] == '-order':
+                trigger_order = "true"
+              elif task['parameter'] == '-meal':
+                trigger_meal = "true"
+          
+          print(f"trigger_order={trigger_order}")
+          print(f"trigger_meal={trigger_meal}")
+          
+          # 1. 获取 GITHUB_OUTPUT 文件的路径
+          output_path = os.getenv('GITHUB_OUTPUT')
+
+          # 2. 以追加模式打开文件并写入输出
+          if output_path:
+              with open(output_path, 'a') as f:
+                  f.write(f"trigger_order={trigger_order}\n")
+                  f.write(f"trigger_meal={trigger_meal}\n")
+        shell: python
+        
+# --- 作业2: 点餐任务执行器 (Worker for Order) ---
+  worker-order:
+    name: Run Order Task
+    # 依赖于调度器作业
+    needs: scheduler
+    # 核心修正：只有在调度器输出 trigger_order 为 'true' 时才运行此作业
+    if: needs.scheduler.outputs.trigger_order == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest release asset
+        run: gh release download --latest --pattern 'foodie-guardian' --output ./foodie-guardian
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Make binary executable
+        run: chmod +x ./foodie-guardian
+
+      - name: Run the application with -order
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./foodie-guardian -order
+
+  # --- 作业3: 吃饭任务执行器 (Worker for Meal) ---
+  worker-meal:
+    name: Run Meal Task
+    # 依赖于调度器作业
+    needs: scheduler
+    # 核心修正：只有在调度器输出 trigger_meal 为 'true' 时才运行此作业
+    if: needs.scheduler.outputs.trigger_meal == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download latest release asset
+        run: gh release download --latest --pattern 'foodie-guardian' --output ./foodie-guardian
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Make binary executable
+        run: chmod +x ./foodie-guardian
+
+      - name: Run the application with -meal
+        env:
+          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: ./foodie-guardian -meal

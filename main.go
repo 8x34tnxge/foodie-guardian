@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -22,12 +23,12 @@ type LLM_API struct {
 	model   string
 }
 
-func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func() string) {
+func WorkNotification(bot *feishu.Client, annualHolidays *AnnualHolidays, f func(*LLM_API, string) string, api *LLM_API, trigger_time string) {
 	annualHolidays.Update()
 	if annualHolidays.DetermineIfTodayShouldWork() {
 		fmt.Println("Today is work day, need to send notification")
 		for {
-			_, resp, err := bot.Send(feishu.NewPostMessage().AppendZHContent([]feishu.PostItem{feishu.NewText(f())}))
+			_, resp, err := bot.Send(feishu.NewPostMessage().AppendZHContent([]feishu.PostItem{feishu.NewText(f(api, trigger_time))}))
 			if err == nil && 0 == resp.Code {
 				break
 			}
@@ -67,68 +68,32 @@ func ParseTimes(times string) ([]gocron.AtTime, error) {
 }
 
 func main() {
-	timezone := os.Getenv("TZ")
+	// 1. 定义命令行参数
+	orderFlag := flag.Bool("order", false, "触发点餐提醒")
+	mealFlag := flag.Bool("meal", false, "触发吃饭提醒")
+	time_param := flag.String("time", "", "触发时间")
+	flag.Parse() // 解析传入的参数
 
 	feishu_bot_api := FeishuBotAPI{os.Getenv("FEISHU_BOT_TOKEN"), os.Getenv("FEISHU_BOT_SECRET")}
 	feishuBot := feishu.NewClient(feishu_bot_api.token, feishu_bot_api.secret)
 	fmt.Printf("Create client, token %s, secret %s\n", feishu_bot_api.token, feishu_bot_api.secret)
 
-	orderNotifyTimes := os.Getenv("ORDER_NOTIFY_TIMES")
-	mealNotifyTimes := os.Getenv("MEAL_NOTIFY_TIMES")
+	gemini_setting := LLM_API{os.Getenv("GEMINI_API_KEY"), os.Getenv("GEMINI_MODEL")}
 
-	// TODO: try database first, api later
+	// TODO: migrate holiday parse into scheduler
 	annualHolidays, err := FetchAnnualHolidayInfo(time.Now().Year())
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Fetch holiday info success")
 
-	location, err := time.LoadLocation(timezone)
-	if err != nil {
-		log.Fatal(err)
+	fmt.Println("Parse succeed, begin to process command")
+	if *orderFlag {
+		WorkNotification(feishuBot, &annualHolidays, GenerateOrderingNotificationMsg, &gemini_setting, *time_param)
+		fmt.Println("Send order notification")
 	}
-
-	scheduler, err := gocron.NewScheduler(gocron.WithLocation(location))
-	if err != nil {
-		log.Fatal(err)
+	if *mealFlag {
+		WorkNotification(feishuBot, &annualHolidays, GenerateMealNotificationMsg, &gemini_setting, *time_param)
+		fmt.Println("Send meal notification")
 	}
-	defer scheduler.Shutdown()
-
-	fmt.Println("Parse times from env")
-	orderNotifyTimesFromEnv, err := ParseTimes(orderNotifyTimes)
-	if err != nil {
-		log.Fatal(err)
-	}
-	mealNotifyTimesFromEnv, err := ParseTimes(mealNotifyTimes)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Parse succeed, begin to generate new jobs")
-	_, err = scheduler.NewJob(
-		gocron.DailyJob(1, gocron.NewAtTimes(
-			orderNotifyTimesFromEnv[0], orderNotifyTimesFromEnv[1:]...,
-		)),
-		gocron.NewTask(
-			WorkNotification, feishuBot, &annualHolidays, GenerateOrderingNotificationMsg,
-		))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	_, err = scheduler.NewJob(
-		gocron.DailyJob(1, gocron.NewAtTimes(
-			mealNotifyTimesFromEnv[0], mealNotifyTimesFromEnv[1:]...,
-		)),
-		gocron.NewTask(
-			WorkNotification, feishuBot, &annualHolidays, GenerateMealNotificationMsg,
-		))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("scheduler init succeed, start it")
-	scheduler.Start()
-
-	select {}
 }

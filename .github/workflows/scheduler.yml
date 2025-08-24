@@ -41,11 +41,13 @@ jobs:
             schedules = json.load(f)
           
           # TODO: add holiday check in here and remove from golang code
+          trigger_time = ""
           for task in schedules:
             task_hour, task_minute = map(int, task['time'].split(':'))
             # 检查当前时间是否落在任务时间的15分钟窗口内
             if task_hour == current_hour and current_minute <= task_minute <= current_minute + 10:
               print(f"Time match! Task '{task['description']}' is due.")
+              trigger_time = task['time']
               if task['parameter'] == '-order':
                 trigger_order = "true"
               elif task['parameter'] == '-meal':
@@ -62,6 +64,7 @@ jobs:
               with open(output_path, 'a') as f:
                   f.write(f"trigger_order={trigger_order}\n")
                   f.write(f"trigger_meal={trigger_meal}\n")
+                  f.write(f"trigger_time={trigger_time}")
         shell: python
         
 # --- 作业2: 点餐任务执行器 (Worker for Order) ---
@@ -83,9 +86,11 @@ jobs:
 
       - name: Run the application with -order
         env:
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: ./foodie-guardian -order
+          FEISHU_BOT_TOKEN: ${{ secrets.FEISHU_BOT_TOKEN }}
+          FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API }}
+          TZ: ${{ secrets.TZ }}
+        run: ./foodie-guardian -order -time ${{ needs.scheduler.outputs.trigger_meal }}
 
   # --- 作业3: 吃饭任务执行器 (Worker for Meal) ---
   worker-meal:
@@ -106,6 +111,8 @@ jobs:
 
       - name: Run the application with -meal
         env:
-          FEISHU_WEBHOOK_URL: ${{ secrets.FEISHU_WEBHOOK_URL }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: ./foodie-guardian -meal
+          FEISHU_BOT_TOKEN: ${{ secrets.FEISHU_BOT_TOKEN }}
+          FEISHU_BOT_SECRET: ${{ secrets.FEISHU_BOT_SECRET }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API }}
+          TZ: ${{ secrets.TZ }}
+        run: ./foodie-guardian -meal -time ${{ needs.scheduler.outputs.trigger_meal }}
